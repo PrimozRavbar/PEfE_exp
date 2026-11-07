@@ -1,0 +1,5 @@
+done in 355s; best validation 13.66
+done in 154s; best validation 14.08
+done in 247s; best validation 12.96
+done in 200s; best validation 14.54
+done in 244s; best validation 14.16

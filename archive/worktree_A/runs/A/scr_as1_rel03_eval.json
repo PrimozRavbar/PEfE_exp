@@ -1,0 +1,81 @@
+[
+ {
+  "name": "runs/A/scr_as1_rel03/best.npz",
+  "protocol": "clone10_f200_s1000_20ep",
+  "score": {
+   "mean": 15.11,
+   "sd": 1.1428956760421267,
+   "per_episode": [
+    15.3,
+    15.2,
+    16.1,
+    16.6,
+    12.9,
+    14.5,
+    12.7,
+    14.1,
+    14.3,
+    14.9,
+    16.5,
+    15.1,
+    14.7,
+    16.4,
+    15.8,
+    14.0,
+    15.9,
+    15.0,
+    16.7,
+    15.5
+   ]
+  },
+  "blind": {
+   "mean": 4.02,
+   "sd": 1.8537586284712415,
+   "per_episode": [
+    6.5,
+    2.1,
+    5.0,
+    3.2,
+    2.8,
+    3.2,
+    0.1,
+    1.0,
+    5.7,
+    4.6,
+    4.1,
+    4.4,
+    6.1,
+    4.5,
+    4.6,
+    5.7,
+    5.7,
+    6.6,
+    2.7,
+    1.8
+   ]
+  },
+  "connections": 541,
+  "connection_counts": {
+   "Win": 63,
+   "Wh": 466,
+   "Wout": 12
+  },
+  "brain_config": {
+   "hidden_max": 10000.0,
+   "add_hidden": 0.5,
+   "add_sens": 1.0,
+   "leak_sens": 0.1,
+   "leak_hidden": 0.1,
+   "max_epsilon": 1.0,
+   "eps_unit": 79,
+   "eps_gain": 100.0,
+   "noise": true
+  },
+  "meta": {
+   "generation": 19,
+   "valid": 16.54,
+   "evals": 2400,
+   "run": "runs/A/scr_as1_rel03"
+  }
+ }
+]

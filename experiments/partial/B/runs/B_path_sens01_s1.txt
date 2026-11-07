@@ -1,0 +1,4 @@
+gen    0 evals     120 best   0.67 mean   0.12 conns     0/    0.0 (0.8s)
+gen    1 evals     240 best   4.67 mean   0.35 conns     3/    2.9 (0.6s)
+gen    2 evals     360 best   5.00 mean   1.32 conns     3/    4.8 (0.5s)
+gen    3 evals     480 best   5.33 mean   1.68 conns     5/    6.2 (0.4s)

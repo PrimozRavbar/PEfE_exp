@@ -1,0 +1,397 @@
+[
+ {
+  "name": "runs/B_path_s0/best.npz",
+  "protocol": "clone10_f200_s1000_20ep",
+  "score": {
+   "mean": 17.669999999999998,
+   "sd": 0.6448990129021017,
+   "per_episode": [
+    17.3,
+    16.8,
+    17.4,
+    17.3,
+    17.3,
+    18.2,
+    16.8,
+    17.4,
+    17.7,
+    18.5,
+    18.5,
+    18.7,
+    18.2,
+    18.1,
+    17.1,
+    16.4,
+    17.7,
+    18.5,
+    17.7,
+    17.8
+   ]
+  },
+  "blind": {
+   "mean": 0.21000000000000002,
+   "sd": 0.24473401243412257,
+   "per_episode": [
+    0.1,
+    0.2,
+    0.0,
+    0.2,
+    0.0,
+    0.1,
+    0.2,
+    0.4,
+    0.0,
+    0.1,
+    0.0,
+    0.1,
+    0.1,
+    0.3,
+    0.1,
+    0.3,
+    0.9,
+    0.1,
+    0.2,
+    0.8
+   ]
+  },
+  "connections": 75,
+  "connection_counts": {
+   "Win": 21,
+   "Wh": 37,
+   "Wout": 17
+  },
+  "brain_config": {
+   "hidden_max": 10000.0,
+   "add_hidden": 0.5,
+   "add_sens": 0.01,
+   "leak_sens": 0.1,
+   "leak_hidden": 0.1,
+   "max_epsilon": 1.0,
+   "eps_unit": 79,
+   "eps_gain": 100.0,
+   "noise": true
+  },
+  "meta": {
+   "generation": 139,
+   "valid": 18.28,
+   "evals": 16800,
+   "run": "runs/B_path_s0"
+  }
+ },
+ {
+  "name": "runs/B_path_s1/best.npz",
+  "protocol": "clone10_f200_s1000_20ep",
+  "score": {
+   "mean": 17.56,
+   "sd": 0.8934851926437757,
+   "per_episode": [
+    18.4,
+    17.6,
+    16.4,
+    18.3,
+    18.2,
+    17.3,
+    18.7,
+    18.1,
+    17.8,
+    18.1,
+    19.1,
+    17.8,
+    18.0,
+    16.4,
+    17.8,
+    15.6,
+    17.2,
+    17.2,
+    16.9,
+    16.3
+   ]
+  },
+  "blind": {
+   "mean": 0.185,
+   "sd": 0.15652475842498528,
+   "per_episode": [
+    0.1,
+    0.5,
+    0.0,
+    0.2,
+    0.4,
+    0.1,
+    0.1,
+    0.4,
+    0.1,
+    0.1,
+    0.0,
+    0.3,
+    0.3,
+    0.2,
+    0.0,
+    0.3,
+    0.0,
+    0.1,
+    0.1,
+    0.4
+   ]
+  },
+  "connections": 70,
+  "connection_counts": {
+   "Win": 21,
+   "Wh": 31,
+   "Wout": 18
+  },
+  "brain_config": {
+   "hidden_max": 10000.0,
+   "add_hidden": 0.5,
+   "add_sens": 0.01,
+   "leak_sens": 0.1,
+   "leak_hidden": 0.1,
+   "max_epsilon": 1.0,
+   "eps_unit": 79,
+   "eps_gain": 100.0,
+   "noise": true
+  },
+  "meta": {
+   "generation": 124,
+   "valid": 17.88,
+   "evals": 15000,
+   "run": "runs/B_path_s1"
+  }
+ },
+ {
+  "name": "runs/B_path_s2/best.npz",
+  "protocol": "clone10_f200_s1000_20ep",
+  "score": {
+   "mean": 17.46,
+   "sd": 0.570687489372525,
+   "per_episode": [
+    18.0,
+    17.0,
+    16.6,
+    17.7,
+    16.6,
+    16.4,
+    17.5,
+    17.2,
+    17.2,
+    18.3,
+    17.8,
+    17.9,
+    17.6,
+    16.8,
+    17.4,
+    17.2,
+    17.7,
+    18.0,
+    18.0,
+    18.3
+   ]
+  },
+  "blind": {
+   "mean": 0.165,
+   "sd": 0.1268027892769755,
+   "per_episode": [
+    0.2,
+    0.2,
+    0.0,
+    0.2,
+    0.1,
+    0.1,
+    0.1,
+    0.4,
+    0.0,
+    0.3,
+    0.0,
+    0.3,
+    0.3,
+    0.1,
+    0.0,
+    0.2,
+    0.2,
+    0.1,
+    0.1,
+    0.4
+   ]
+  },
+  "connections": 60,
+  "connection_counts": {
+   "Win": 16,
+   "Wh": 32,
+   "Wout": 12
+  },
+  "brain_config": {
+   "hidden_max": 10000.0,
+   "add_hidden": 0.5,
+   "add_sens": 0.01,
+   "leak_sens": 0.1,
+   "leak_hidden": 0.1,
+   "max_epsilon": 1.0,
+   "eps_unit": 79,
+   "eps_gain": 100.0,
+   "noise": true
+  },
+  "meta": {
+   "generation": 149,
+   "valid": 18.12,
+   "evals": 18000,
+   "run": "runs/B_path_s2"
+  }
+ },
+ {
+  "name": "runs/B_apc_s0/best.npz",
+  "protocol": "clone10_f200_s1000_20ep",
+  "score": {
+   "mean": 18.480000000000004,
+   "sd": 0.7592239805430138,
+   "per_episode": [
+    17.8,
+    17.9,
+    18.2,
+    18.9,
+    18.2,
+    18.9,
+    18.9,
+    19.2,
+    18.8,
+    18.1,
+    19.7,
+    18.6,
+    18.5,
+    18.9,
+    18.7,
+    16.8,
+    17.1,
+    17.7,
+    19.1,
+    19.6
+   ]
+  },
+  "blind": {
+   "mean": 0.5850000000000001,
+   "sd": 0.4659737964171037,
+   "per_episode": [
+    0.1,
+    0.7,
+    0.0,
+    0.2,
+    0.9,
+    0.1,
+    1.2,
+    0.6,
+    0.1,
+    0.5,
+    0.1,
+    0.6,
+    1.8,
+    0.6,
+    0.5,
+    1.1,
+    0.4,
+    0.6,
+    1.2,
+    0.4
+   ]
+  },
+  "connections": 146,
+  "connection_counts": {
+   "Win": 66,
+   "Wh": 33,
+   "Wout": 47
+  },
+  "brain_config": {
+   "hidden_max": 10000.0,
+   "add_hidden": 0.5,
+   "add_sens": 0.01,
+   "leak_sens": 0.1,
+   "leak_hidden": 0.1,
+   "max_epsilon": 1.0,
+   "eps_unit": 79,
+   "eps_gain": 100.0,
+   "noise": true
+  },
+  "meta": {
+   "generation": 129,
+   "valid": 18.64,
+   "evals": 15600,
+   "run": "runs/B_apc_s0"
+  }
+ },
+ {
+  "name": "runs/B_apc_s1/best.npz",
+  "protocol": "clone10_f200_s1000_20ep",
+  "score": {
+   "mean": 18.744999999999997,
+   "sd": 0.9075560008819524,
+   "per_episode": [
+    18.1,
+    19.6,
+    18.7,
+    19.7,
+    18.6,
+    17.8,
+    19.5,
+    19.3,
+    19.4,
+    18.7,
+    19.4,
+    18.8,
+    18.7,
+    18.8,
+    15.7,
+    18.4,
+    19.2,
+    17.9,
+    19.3,
+    19.3
+   ]
+  },
+  "blind": {
+   "mean": 0.8699999999999999,
+   "sd": 0.6424459838035125,
+   "per_episode": [
+    1.1,
+    0.3,
+    0.2,
+    0.2,
+    1.8,
+    0.9,
+    1.9,
+    0.5,
+    0.2,
+    1.5,
+    1.6,
+    0.3,
+    1.7,
+    0.5,
+    0.4,
+    0.8,
+    1.9,
+    1.0,
+    0.2,
+    0.4
+   ]
+  },
+  "connections": 149,
+  "connection_counts": {
+   "Win": 48,
+   "Wh": 29,
+   "Wout": 72
+  },
+  "brain_config": {
+   "hidden_max": 10000.0,
+   "add_hidden": 0.5,
+   "add_sens": 0.01,
+   "leak_sens": 0.1,
+   "leak_hidden": 0.1,
+   "max_epsilon": 1.0,
+   "eps_unit": 79,
+   "eps_gain": 100.0,
+   "noise": true
+  },
+  "meta": {
+   "generation": 104,
+   "valid": 19.62,
+   "evals": 12600,
+   "run": "runs/B_apc_s1"
+  }
+ }
+]

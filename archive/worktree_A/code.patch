@@ -1,0 +1,51 @@
+diff --git a/src/evolve.py b/src/evolve.py
+index 70a0291..d26b327 100644
+--- a/src/evolve.py
++++ b/src/evolve.py
+@@ -69,6 +69,8 @@ def build_parser():
+     a("--mutation-rate", type=float, default=0.1)
+     a("--mutation-scale", type=float, default=0.05)
+     a("--no-hyper-mutation", action="store_true")
++    a("--mutation-relative", type=float, default=0.0,
++      help="extra multiplicative weight perturbation: w += N(0,1)*rel*|w| (0 = off)")
+     a("--connection-rate", type=float, default=0.002, help="per-entry add prob.")
+     a("--remove-rate", type=float, default=None,
+       help="per-entry remove prob. (default = --connection-rate, as in genome_pe3)")
+@@ -138,7 +140,8 @@ def validate(genome, args, bcfg, ecfg, gen):
+ def make_child(parent, args, rng):
+     child = parent.clone()
+     child.mutate(rng, args.mutation_rate, args.mutation_scale,
+-                 mutate_hyper=not args.no_hyper_mutation)
++                 mutate_hyper=not args.no_hyper_mutation,
++                 relative_scale=args.mutation_relative)
+     child.add_remove_connection(rng, args.connection_rate, args.connection_scale,
+                                 remove_rate=args.remove_rate, caps=not args.no_caps)
+     return child
+diff --git a/src/pefe_np.py b/src/pefe_np.py
+index b538080..5f981f1 100644
+--- a/src/pefe_np.py
++++ b/src/pefe_np.py
+@@ -117,12 +117,20 @@ class Genome:
+ 
+     # -- mutation (faithful to genome_pe3; extra knobs default to old behavior)
+     def mutate(self, rng, mutation_rate=0.1, mutation_scale=0.05,
+-               mutate_hyper=True):
+-        """Perturb existing (nonzero) weights; perturb hyperparameters."""
++               mutate_hyper=True, relative_scale=0.0):
++        """Perturb existing (nonzero) weights; perturb hyperparameters.
++
++        relative_scale > 0 adds a multiplicative term: w += N(0,1)*rel*|w|,
++        so big weights move proportionally (default 0 = genome_pe3 behaviour).
++        """
+         for _, W, _ in self.matrices():
+             mask = (W != 0) & (rng.random(W.shape) < mutation_rate)
+             if mask.any():
+-                W[mask] += (rng.standard_normal(int(mask.sum())) * mutation_scale).astype(np.float32)
++                k = int(mask.sum())
++                W[mask] += (rng.standard_normal(k) * mutation_scale).astype(np.float32)
++                if relative_scale > 0:
++                    W[mask] += (rng.standard_normal(k) * relative_scale
++                                * np.abs(W[mask])).astype(np.float32)
+         if mutate_hyper:
+             hm = rng.random(NUM_HYPERPARAMETERS) < mutation_rate
+             self.hyper[hm] += (rng.standard_normal(int(hm.sum())) * mutation_scale).astype(np.float32)

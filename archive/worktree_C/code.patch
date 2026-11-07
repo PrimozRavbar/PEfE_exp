@@ -1,0 +1,152 @@
+diff --git a/src/evolve.py b/src/evolve.py
+index 70a0291..8f5b2ab 100644
+--- a/src/evolve.py
++++ b/src/evolve.py
+@@ -50,6 +50,23 @@ def build_parser():
+     a("--episodes", type=int, default=3, help="episodes per generation")
+     a("--survivors", type=int, default=8)
+     a("--elites", type=int, default=3)
++    a("--selection", choices=["rank", "tournament"], default="rank",
++      help="parent selection: rank = rank-weighted among the top --survivors "
++           "(default); tournament = best of --tournament-size random members")
++    a("--tournament-size", type=int, default=3)
++    # steady-state scheme (experiment C)
++    a("--scheme", choices=["generational", "steady"], default="generational",
++      help="steady: population with fitness estimates averaged over "
++           "re-evaluations; each step evaluates --ss-children new children "
++           "plus --ss-reeval re-evaluated members, then keeps the best "
++           "--population by estimated fitness (children are never inserted "
++           "with an unevaluated fitness)")
++    a("--ss-children", type=int, default=30)
++    a("--ss-reeval", type=int, default=10,
++      help="members re-evaluated per step (the top ones by estimate)")
++    a("--ss-max-count", type=int, default=10,
++      help="running-mean window: estimate = EMA with weight max(1/n, 1/this), "
++           "so old estimates track a changing population")
+     a("--eval-mode", choices=["mixed", "clone"], default="mixed",
+       help="mixed: shuffled arenas of different genomes; clone: each genome "
+            "is evaluated as a team of --arena-size copies of itself")
+@@ -144,10 +161,30 @@ def make_child(parent, args, rng):
+     return child
+ 
+ 
++def pick_parent(genomes, sel_fitness, args, rng, order=None):
++    """One parent index.  rank: rank-weighted among the top --survivors;
++    tournament: best (random tie-break) of --tournament-size random members."""
++    if args.selection == "tournament":
++        idx = rng.choice(len(genomes), size=min(args.tournament_size, len(genomes)),
++                         replace=False)
++        f = sel_fitness[idx] + 1e-9 * rng.random(len(idx))
++        return int(idx[np.argmax(f)])
++    if order is None:
++        order = np.lexsort((rng.random(len(genomes)), -sel_fitness))
++    k = min(args.survivors, len(genomes))
++    w = np.arange(k, 0, -1, dtype=float)
++    return int(order[rng.choice(k, p=w / w.sum())])
++
++
+ def next_generation(genomes, sel_fitness, args, rng):
+     order = np.lexsort((rng.random(len(genomes)), -sel_fitness))
+     survivors = [genomes[i] for i in order[:args.survivors]]
+     new = [g.clone() for g in survivors[:args.elites]]
++    if args.selection == "tournament":
++        while len(new) < args.population:
++            new.append(make_child(genomes[pick_parent(genomes, sel_fitness, args, rng)],
++                                  args, rng))
++        return new
+     w = np.arange(len(survivors), 0, -1, dtype=float)
+     w /= w.sum()
+     while len(new) < args.population:
+@@ -155,6 +192,78 @@ def next_generation(genomes, sel_fitness, args, rng):
+     return new
+ 
+ 
++def run_steady(args, rng, bcfg, ecfg, log_path):
++    """Steady-state scheme.  Each step: B children + R re-evaluated members are
++    evaluated together (mixed arenas or clone teams); every member keeps a
++    running-mean fitness estimate; the population is then the best N of
++    (members + children) by estimate.  The initial population is evaluated
++    before the first step."""
++    N, B, R = args.population, args.ss_children, min(args.ss_reeval, args.population)
++    if args.eval_mode == "mixed" and (B + R) % args.arena_size:
++        raise SystemExit("--ss-children + --ss-reeval must be a multiple of --arena-size")
++    if args.eval_mode == "mixed" and N % args.arena_size:
++        raise SystemExit("--population must be a multiple of --arena-size")
++    pop = [init_genome(args, rng) for _ in range(N)]
++    est, cnt = evaluate_population(pop, args, rng, bcfg, ecfg)[0], np.ones(N)
++    evals = N * args.episodes * (args.arena_size if args.eval_mode == "clone" else 1)
++    best_valid, t_start = -1.0, time.perf_counter()
++    for step in range(args.generations):
++        t0 = time.perf_counter()
++        conns = np.array([g.n_connections() for g in pop])
++        sel = est - args.connection_cost * conns
++        order = np.lexsort((rng.random(N), -sel))
++        children = [make_child(pop[pick_parent(pop, sel, args, rng, order)], args, rng)
++                    for _ in range(B)]
++        re_idx = order[:R]
++        batch = children + [pop[i] for i in re_idx]
++        f, used = evaluate_population(batch, args, rng, bcfg, ecfg)
++        evals += used
++        # update estimates of re-evaluated members (EMA with growing window)
++        for j, i in enumerate(re_idx):
++            cnt[i] += 1
++            a = max(1.0 / cnt[i], 1.0 / args.ss_max_count)
++            est[i] += a * (f[B + j] - est[i])
++        allg = pop + children
++        alle = np.concatenate([est, f[:B]])
++        allc = np.concatenate([cnt, np.ones(B)])
++        allconn = np.array([g.n_connections() for g in allg])
++        allsel = alle - args.connection_cost * allconn
++        keep = np.lexsort((rng.random(len(allg)), -allsel))[:N]
++        pop = [allg[i] for i in keep]
++        est, cnt, conns = alle[keep], allc[keep], allconn[keep]
++        sel = allsel[keep]
++        # "best" = best estimate among members evaluated at least twice
++        trusted = cnt >= 2
++        cand = np.where(trusted, sel, -np.inf) if trusted.any() else sel
++        b = int(np.argmax(cand))
++
++        valid = ""
++        last = step == args.generations - 1 or (args.max_evals and evals >= args.max_evals)
++        if (step + 1) % args.check_every == 0 or last:
++            v = validate(pop[b], args, bcfg, ecfg, step)
++            valid = f"{v:.3f}"
++            if v > best_valid:
++                best_valid = v
++                P.save_genome(os.path.join(args.out, "best.npz"), pop[b], bcfg,
++                              {"generation": step, "valid": v, "evals": int(evals),
++                               "run": args.out, "estimate": float(est[b]),
++                               "count": int(cnt[b])})
++        dt = time.perf_counter() - t0
++        with open(log_path, "a", newline="") as fh:
++            csv.writer(fh).writerow([step, int(evals), f"{est[b]:.3f}", f"{est.mean():.3f}",
++                                     f"{np.median(est):.3f}", int(conns[b]),
++                                     f"{conns.mean():.1f}", valid, f"{best_valid:.3f}",
++                                     f"{dt:.2f}", f"{f[:B].mean():.3f}", int(cnt[b])])
++        print(f"step {step:4d} evals {evals:7d} best-est {est[b]:6.2f} (n={int(cnt[b])}) "
++              f"mean {est.mean():6.2f} children {f[:B].mean():6.2f} "
++              f"conns {conns[b]:5d}/{conns.mean():7.1f}" + (f" valid {valid}" if valid else "")
++              + f" ({dt:.1f}s)", flush=True)
++        if last:
++            break
++    _save_pop(os.path.join(args.out, "final_pop.npz"), pop, est)
++    print(f"done in {time.perf_counter() - t_start:.0f}s; best validation {best_valid:.2f}")
++
++
+ def main(argv=None):
+     args = build_parser().parse_args(argv)
+     if args.eval_mode == "mixed" and args.population % args.arena_size:
+@@ -165,6 +274,13 @@ def main(argv=None):
+ 
+     rng = np.random.default_rng(args.seed)
+     bcfg, ecfg = brain_config(args), env_config(args)
++    if args.scheme == "steady":
++        log_path = os.path.join(args.out, "log.csv")
++        with open(log_path, "w", newline="") as f:
++            csv.writer(f).writerow(["generation", "evals", "best", "mean", "median",
++                                    "best_connections", "mean_connections", "valid",
++                                    "best_valid", "seconds", "children_mean", "best_count"])
++        return run_steady(args, rng, bcfg, ecfg, log_path)
+     genomes = [init_genome(args, rng) for _ in range(args.population)]
+ 
+     log_path = os.path.join(args.out, "log.csv")
