@@ -1,4 +1,4 @@
-# PEEvo
+# PEfEvo
 
 Experimenting with parameter-efficient evolution of recurrent neural networks embedded in simple 2D agents that interact with their environment and with one another.
 
