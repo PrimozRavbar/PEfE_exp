@@ -129,19 +129,36 @@ class Genome:
             np.maximum(self.hyper, 1e-3, out=self.hyper)
 
     def add_remove_connection(self, rng, mutation_rate=0.002, mutation_scale=1.0,
-                              remove_rate=None, caps=True):
+                              remove_rate=None, caps=True, add_per_child=None,
+                              add_share=None):
         """Structural mutation.
 
         Default (remove_rate=None) is genome_pe3's rule: every entry is hit
         with probability `mutation_rate`; hit nonzeros are removed, hit zeros
         are added (up to the 20 % cap).  `remove_rate` lets the remove
         probability differ from the add probability.
+
+        `add_per_child` (optional) replaces the per-entry add probability by
+        a fixed *expected number* of additions per call, split over
+        (Win, Wh, Wout) by `add_share` (default: proportional to matrix size,
+        i.e. uniform over entries).  Within a matrix each empty entry is added
+        with probability expected_adds_m / n_empty_m, so the add count does
+        not depend on how full the genome already is.
         """
         rr = mutation_rate if remove_rate is None else remove_rate
-        for _, W, cap in self.matrices():
+        if add_per_child is not None:
+            share = (np.array([N_WIN, N_WH, N_WOUT], float) if add_share is None
+                     else np.asarray(add_share, float))
+            share = share / share.sum()
+        for m, (_, W, cap) in enumerate(self.matrices()):
             nz = W != 0
             remove = nz & (rng.random(W.shape) < rr)
-            add = (~nz) & (rng.random(W.shape) < mutation_rate)
+            if add_per_child is None:
+                p_add = mutation_rate
+            else:
+                n_empty = W.size - int(nz.sum())
+                p_add = min(1.0, add_per_child * share[m] / max(n_empty, 1))
+            add = (~nz) & (rng.random(W.shape) < p_add)
             W[remove] = 0.0
             add_idx = np.flatnonzero(add)
             if caps:
@@ -154,6 +171,17 @@ class Genome:
                 W.flat[add_idx] = (rng.standard_normal(len(add_idx)) * mutation_scale).astype(np.float32)
                 # an exact zero would be "no connection"; vanishingly rare
                 W.flat[add_idx[W.flat[add_idx] == 0]] = 1e-6
+
+    def add_path(self, rng, mutation_scale=1.0):
+        """Add one input->hidden->output path through a random hidden unit:
+        a new Win[j, i] and a new Wout[k, j] (entries that already exist are
+        left alone).  Off unless evolve.py --add-path-prob > 0."""
+        j = int(rng.integers(HIDDEN_SIZE))
+        i = int(rng.integers(INPUT_SIZE))
+        k = int(rng.integers(OUTPUT_SIZE))
+        for W, idx in ((self.Win, (j, i)), (self.Wout, (k, j))):
+            if W[idx] == 0:
+                W[idx] = np.float32(rng.standard_normal() * mutation_scale) or np.float32(1e-6)
 
     # -- io ------------------------------------------------------------------
     def to_dict(self, prefix=""):

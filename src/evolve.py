@@ -74,6 +74,15 @@ def build_parser():
       help="per-entry remove prob. (default = --connection-rate, as in genome_pe3)")
     a("--connection-scale", type=float, default=1.0)
     a("--no-caps", action="store_true", help="drop the 20%% per-matrix caps")
+    a("--add-per-child", type=float, default=None,
+      help="expected number of added connections per child (replaces the "
+           "per-entry --connection-rate for additions; default off)")
+    a("--add-share", default=None,
+      help="with --add-per-child: comma-separated Win,Wh,Wout split of the "
+           "additions, e.g. 0.4,0.2,0.4 (default: proportional to matrix size)")
+    a("--add-path-prob", type=float, default=0.0,
+      help="per-child probability of adding one input->hidden->output path "
+           "(a Win and a Wout entry through the same random hidden unit)")
     a("--connection-cost", type=float, default=0.0,
       help="selection fitness = food - cost * n_connections")
     # validation / checkpoints
@@ -140,7 +149,12 @@ def make_child(parent, args, rng):
     child.mutate(rng, args.mutation_rate, args.mutation_scale,
                  mutate_hyper=not args.no_hyper_mutation)
     child.add_remove_connection(rng, args.connection_rate, args.connection_scale,
-                                remove_rate=args.remove_rate, caps=not args.no_caps)
+                                remove_rate=args.remove_rate, caps=not args.no_caps,
+                                add_per_child=args.add_per_child,
+                                add_share=(None if args.add_share is None else
+                                           [float(x) for x in args.add_share.split(",")]))
+    if args.add_path_prob > 0 and rng.random() < args.add_path_prob:
+        child.add_path(rng, args.connection_scale)
     return child
 
 
