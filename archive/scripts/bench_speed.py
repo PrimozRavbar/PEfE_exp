@@ -4,7 +4,7 @@ episodes (12 arenas x 10 agents x 1000 steps, sparse ~1k-connection genomes).
 torch is not available here, so the per-agent brain is the numpy Brain3 port
 called one agent at a time (torch per-call overhead would be larger)."""
 import os, sys, time
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src"))
 import numpy as np
 import pefe_np as P
 from agent3 import Agent

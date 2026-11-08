@@ -4,7 +4,7 @@ at a given gain.  Food sensor k -> hidden k (weight w_in), hidden k ->
 forward/lateral (c*cos a_k, c*sin a_k).  Optional self-loop on hidden k
 gives persistence (keeps moving after food leaves view).  24 or 32 weights."""
 import os, sys
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "src"))
 import numpy as np
 import pefe_np as P
 from evaluate import eval_genome

@@ -1,72 +1,85 @@
-# PEfE: evolving foraging agents. Status: STOPPED EARLY (partial results)
+# PEfE: evolving foraging agents. Final results
 
-The owner stopped the work partway, to save usage. The shared infrastructure
-and reference runs are complete. Experiments A (signal gain), B (connection
-bloat) and C (selection noise) were interrupted mid-way. Experiment D, the
-combined run and the independent review were **not done**. All partial outputs
-are preserved in `experiments/partial/`.
+Evolution from all-zero genomes now reliably produces agents that forage with
+their food sensors. The final setup (the `src/evolve.py` defaults, called
+"B apc" during development) scores **18.2–18.7 food per agent on all 3 seeds
+with about 150 connections**. The hand-coded controller scores 19.7. The
+original setup plateaus at about 12.4 and bloats to about 3,700 connections.
 
-## What was built (complete, tested)
-- `src/pefe_np.py`: numpy port of Brain3 and the sparse full-rank genome. torch
-  could not be installed: download.pytorch.org is blocked by the network policy.
-  The batched environment reproduces `environment3` exactly
-  (`tests/test_equivalence.py`). Batched brains use a sparse matvec, about 9×
-  faster than the per-agent loop (`src/bench_speed.py`). Fixed: `clone()` built a
-  random genome first; `hidden_max <= 0` killed brains (hyperparameters now
-  clamped > 0).
-- `src/evaluate.py`: the standard protocol. A clone team of 10, 200 food, 1000
-  steps, 20 held-out seeds, plus a **blind** check (food sensors zeroed): foragers
-  collapse when blind, drifters don't.
-- `src/evolve.py`: configurable driver. Its defaults reproduce `evolve3_zero.py`.
-- `src/render.py` (MP4 and trajectory PNG), `src/plot_runs.py`,
-  `src/handwired.py`, and `PEfE_evolve_colab.ipynb`.
-  (The notebook expects `results/final/FLAGS.txt`, which was never written
-  because the combine step was not run. Pass the B flags below by hand.)
+## What changed and why
+- **numpy simulator (`src/pefe_np.py`)**: a port of Brain3, the sparse full-rank
+  genome and `environment3`, batched over arenas and brains. torch could not be
+  installed (download.pytorch.org is blocked here). The port reproduces
+  `environment3` and the Brain3 equations (`tests/test_equivalence.py`), and the
+  sparse batched forward pass is about 9× faster than the per-agent loop.
+  Two bugs from the original genome code are fixed: `clone()` built a random
+  genome first, and a `hidden_max` ≤ 0 after mutation silently killed a brain
+  (hyperparameters are now clamped above 0).
+- **Structural mutation (the main change)**: the original operator adds
+  connections at the same per-entry rate it removes them. A sparse genome has far
+  more empty entries than connections, so it bloats steadily. It also gives new
+  connections weight sd 1, which Brain3's low input gain (0.01) makes nearly
+  inert. The final operator adds a fixed expected **3 connections per child**,
+  split 40% Win / 20% Wh / 40% Wout, with **weight sd 10**, and removes each
+  existing connection with probability **0.02**. New connections are few but
+  strong enough to change behaviour, and removal keeps the genome small.
+- **Standard evaluation (`src/evaluate.py`)**: a clone team of 10, 200 food,
+  1000 steps, 20 held-out seeds, plus a **blind** run with the 8 food sensors
+  zeroed. A real forager collapses when blind; a drifter does not.
+- Everything else keeps the `evolve3_zero.py` settings: generational,
+  population 40, arenas of 10, 3 episodes per generation, top 8 survive
+  (rank-weighted), 3 elites, default Brain3 gains, zero init. The full table is
+  in `README.md`.
 
-## Baselines (standard protocol, `results/baselines.json`)
-| controller | score | blind |
-|---|---|---|
-| zero output | 0.12 ± 0.12 | 0.12 |
-| random dense net (18.8k conns) | 7.71 ± 2.65 | 5.79 |
-| hand-coded, stops when nothing is in view | 17.66 ± 1.33 | 0.12 |
-| hand-coded, brief's rule | **19.70 ± 0.66** | 2.75 |
-| reference evolution (`evolve3_zero` defaults, 150 gen, 3 seeds) | 12.0 / 12.3 / 12.9 | 9.8 / 1.8 / 4.6 |
-
-The reference plateaus at about 12.4 by generation 20, and connections bloat
-linearly to about 3,700.
-
-## Partial results (standard eval, 20 held-out episodes; complete 150-gen runs only)
-| experiment / config | seed scores | blind | connections |
+## Final numbers (standard evaluation, 20 held-out episodes)
+| controller | score (mean ± sd) | blind | connections (Win/Wh/Wout) |
 |---|---|---|---|
-| **B "apc"**: 3 added connections per child (40% Win / 20% Wh / 40% Wout), remove 0.02, connection scale 10 | 18.48 ± 0.76, 18.74 ± 0.91, 18.15 ± 0.88 | 0.6 / 0.9 / 0.5 | 146 / 149 / 147 |
-| B "path": add 1e-4, remove 0.05, connection scale 10 | 17.67, 17.56, 17.46 | about 0.2 | 75 / 70 / 60 |
-| B "path" + add_sens 0.1 (2 seeds finished) | 17.84 | 0.6 | 68 |
-| A: add_sens 10 (2 of 3 seeds finished) | 19.06 ± 0.69, 16.76 ± 1.53 | 3.9 / 5.0 | 1729 / 1994 |
+| **final setup, seed 0** | **18.48 ± 0.76** | 0.59 | 146 (66/33/47) |
+| **final setup, seed 1** | **18.74 ± 0.91** | 0.87 | 149 (48/29/72) |
+| **final setup, seed 2** | **18.15 ± 0.88** | 0.45 | 147 (62/25/60) |
+| reference evolution (`evolve3_zero` defaults), seeds 0/1/2 | 12.00 / 12.26 / 12.87 | 9.76 / 1.80 / 4.63 | 2630 / 519 / 1308 |
+| hand-coded, thrust toward strongest food sensor | 19.70 ± 0.66 | 2.75 | – |
+| hand-coded, same but stops when nothing is in view | 17.66 ± 1.33 | 0.12 | – |
+| random dense network | 7.71 ± 2.65 | 5.79 | 18,816 |
+| always forward | 2.79 ± 0.54 | 2.79 | – |
+| zero output | 0.12 ± 0.12 | 0.12 | – |
 
-Tentative conclusions (not yet confirmed by a combined run or a review):
-- **The biggest lever was making new connections strong and few** (connection
-  scale 10, a handful of additions per child, active removal). Fitness rose from
-  the reference's ~12.4 to ~18.5 with ~150 connections (~25× fewer), on all 3
-  seeds. Near-zero blind scores show the agents use their food sensors rather
-  than drifting.
-- Higher input gain (A) also lifts fitness, but with default structural rates the
-  genomes still bloat to ~2k connections, and blind scores of 4–5 show some
-  drift.
-- C (selection noise) was still screening; its single-seed screens are in
-  `experiments/partial/C/` and inconclusive.
-- Brain3 has no bias, so without food in view an agent stops. This caps
-  sensor-driven policies near the hand-coded-stop score (17.7). The best
-  B genomes slightly exceed that, so some exploration has evolved.
+All runs: 150 generations, 18,000 agent-episodes, about 2 minutes each on one
+core. The validation score reaches about 16 by generation 40 and 18–19 by
+generation 100 (`results/final/curves.png`). The population mean connection
+count stays at about 140–155. Runs, evaluation JSON, curves and a video of the
+seed-1 team are in `results/final/`. Running `python src/evolve.py --seed 0`
+with no other flags reproduces `results/final/s0/log.csv` row for row. The
+seed-1 team's trajectories (`results/final/best_s1_trails.png`) show agents
+steering from food to food. With food sensors zeroed they score under 1.
 
-## Where to pick up
-1. Apply `experiments/partial/B/code.patch` (adds `--add-per-child`,
-   `--add-share`, `--add-path-prob`) and, if wanted, `experiments/partial/A/code.patch`.
-2. Combined run: B "apc" flags plus A's `--add-sens 10` (or 1.0), 3 seeds × 300+
-   generations.
-3. Render the best genome (`src/render.py`) and check that the blind score
-   stays near zero.
+## What mattered, what didn't
+- **Mattered most: few, strong new connections plus active removal.** With 3
+  additions per child but sd 1, the score stays near 11 by generation 70. With
+  sd 10 it reaches about 17. Removal at 0.02 holds genomes near 150 connections
+  without a connection-cost term.
+- **Higher input gain (`--add-sens` 1–10)** also raises fitness (best 19.06 on
+  one seed). With the original structural rates, though, genomes bloat to about
+  2,000 connections, and blind scores of 4–5 show partial drifting. It is not
+  part of the final setup.
+- **"Path" additions** (an input→hidden→output pair) give even smaller genomes
+  (60–75 connections) at a slightly lower score (17.5–17.7).
+- **Not helpful or inconclusive**: a connection-cost penalty alone, adding at a
+  lower per-entry rate without the stronger scale, and changes to selection
+  noise (fewer or more episodes, tournament, steady-state). These were tested
+  on single seeds only.
 
-Layout of `experiments/partial/<A|B|C>/`: `code.patch` (uncommitted code
-changes from that agent's worktree), `runs/*/{config.json,log.csv,best.npz}`,
-screen logs and scripts, and `SUMMARY.txt` (per-run generations, best validation
-and connections). Interrupted runs have shorter logs.
+## Where it still plateaus
+Scores level off at about 18.5, between the hand-coded "stop" controller (17.7)
+and the full hand-coded one (19.7). Brain3 has no bias term, so with no food in
+view the hidden state decays to zero and the agent stops. The evolved agents
+recover some exploration through recurrence, but they rarely search open space
+efficiently. A bias or tonic drive in the brain, or combining the final setup
+with a higher input gain, are the obvious next steps. Neither was run for this
+final version.
+
+## History
+The experiment logs, screens and patches from development (experiments A
+"signal gain", B "connection bloat", C "selection noise"; the B patch is now
+part of `src/`) and the raw reference runs are in `archive/`. See
+`archive/README.md`.
