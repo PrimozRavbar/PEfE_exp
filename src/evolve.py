@@ -1,9 +1,14 @@
 """Configurable evolution driver on the batched numpy simulator.
 
-Defaults reproduce evolve3_zero.py (generational, population 40, arenas of 10,
-3 episodes/gen, rank-weighted truncation, top 8 survive, 3 elites, Brain3
-default gains, genome_pe3 mutation operators).  Every knob that an experiment
-changes is a flag, so runs differ only by their command line (saved in
+Defaults are the final "B apc" setup: generational, population 40, arenas of
+10, 3 episodes/gen, rank-weighted truncation, top 8 survive, 3 elites, Brain3
+default gains, zero-init genomes, 150 generations, and the B structural
+mutation: about 3 new connections per child (split 40% Win / 20% Wh / 40% Wout)
+with strong initial weights (connection scale 10) and per-entry removal 0.02.
+The full table is in README.md.  To get the older evolve3_zero.py behaviour
+(per-entry add = remove = 0.002, scale 1) pass
+    --add-per-child none --add-share none --remove-rate none --connection-scale 1
+Every knob is a flag, so runs differ only by their command line (saved in
 config.json).
 
 Outputs in --out:
@@ -14,7 +19,7 @@ Outputs in --out:
 Final numbers must come from evaluate.py (held-out seeds), not from log.csv.
 
 Usage:
-    python src/evolve.py --out runs/base_s0 --seed 0 --generations 100
+    python src/evolve.py --out runs/x --seed 0
 """
 
 import argparse
@@ -34,13 +39,21 @@ import pefe_np as P  # noqa: E402
 VALID_SEED_BASE = 500_000  # validation seeds; evaluate.py uses 1_000_000+
 
 
+def _float_or_none(x):
+    return None if str(x).lower() == "none" else float(x)
+
+
+def _str_or_none(x):
+    return None if str(x).lower() == "none" else x
+
+
 def build_parser():
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
     a = p.add_argument
     a("--out", required=True)
     a("--seed", type=int, default=0)
-    a("--generations", type=int, default=100)
+    a("--generations", type=int, default=150)
     a("--max-evals", type=int, default=0,
       help="stop after this many agent-episodes (0 = no limit); use it to "
            "compare schemes at equal compute")
@@ -70,16 +83,19 @@ def build_parser():
     a("--mutation-scale", type=float, default=0.05)
     a("--no-hyper-mutation", action="store_true")
     a("--connection-rate", type=float, default=0.002, help="per-entry add prob.")
-    a("--remove-rate", type=float, default=None,
-      help="per-entry remove prob. (default = --connection-rate, as in genome_pe3)")
-    a("--connection-scale", type=float, default=1.0)
+    a("--remove-rate", type=_float_or_none, default=0.02,
+      help="per-entry remove prob.; 'none' = same as --connection-rate, "
+           "as in genome_pe3")
+    a("--connection-scale", type=float, default=10.0,
+      help="sd of the weight given to a newly added connection")
     a("--no-caps", action="store_true", help="drop the 20%% per-matrix caps")
-    a("--add-per-child", type=float, default=None,
+    a("--add-per-child", type=_float_or_none, default=3.0,
       help="expected number of added connections per child (replaces the "
-           "per-entry --connection-rate for additions; default off)")
-    a("--add-share", default=None,
+           "per-entry --connection-rate for additions); 'none' = use "
+           "--connection-rate per entry")
+    a("--add-share", type=_str_or_none, default="0.4,0.2,0.4",
       help="with --add-per-child: comma-separated Win,Wh,Wout split of the "
-           "additions, e.g. 0.4,0.2,0.4 (default: proportional to matrix size)")
+           "additions; 'none' = proportional to matrix size")
     a("--add-path-prob", type=float, default=0.0,
       help="per-child probability of adding one input->hidden->output path "
            "(a Win and a Wout entry through the same random hidden unit)")
