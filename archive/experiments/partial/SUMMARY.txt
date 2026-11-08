@@ -1,0 +1,39 @@
+run                                          gens best_valid mean_conns  key flags
+A/runs/A/fin_as10_s0                          150     19.260     2032.4  {'add_sens': 10.0} {'mutation_relative': 0.0}
+A/runs/A/fin_as10_s1                          150     18.000     2685.5  {'add_sens': 10.0} {'mutation_relative': 0.0}
+A/runs/A/fin_as10_s2                          144     14.240     3561.9  {'add_sens': 10.0} {'mutation_relative': 0.0}
+A/runs/A/scr_as01                              70     13.160     1718.8  {'add_sens': 0.1} {'mutation_relative': 0.0}
+A/runs/A/scr_as01_ms03                         16     11.200      562.0  {'add_sens': 0.1, 'mutation_scale': 0.3} {'mutation_relative': 0.0}
+A/runs/A/scr_as1                               70     16.400     1684.0  {'add_sens': 1.0} {'mutation_relative': 0.0}
+A/runs/A/scr_as10                              70     18.500      876.9  {'add_sens': 10.0} {'mutation_relative': 0.0}
+A/runs/A/scr_as1_ah01                          70     19.360     1588.1  {'add_hidden': 0.1, 'add_sens': 1.0} {'mutation_relative': 0.0}
+A/runs/A/scr_as1_hm10                          70     18.180     1747.0  {'hidden_max': 10.0, 'add_sens': 1.0} {'mutation_relative': 0.0}
+A/runs/A/scr_as1_ms03                          70     14.420     1909.0  {'add_sens': 1.0, 'mutation_scale': 0.3} {'mutation_relative': 0.0}
+A/runs/A/scr_as1_nn                            70     15.600     1847.8  {'add_sens': 1.0, 'no_noise': True} {'mutation_relative': 0.0}
+A/runs/A/scr_as1_rel03                         70     16.540     1576.0  {'add_sens': 1.0} {'mutation_relative': 0.3}
+B/runs/B_apc_s0                               150     18.640      153.3  {'remove_rate': 0.02, 'connection_scale': 10.0} {'add_per_child': 3.0, 'add_share': '0.4,0.2,0.4', 'add_path_prob': 0.0}
+B/runs/B_apc_s1                               150     19.620      136.0  {'remove_rate': 0.02, 'connection_scale': 10.0} {'add_per_child': 3.0, 'add_share': '0.4,0.2,0.4', 'add_path_prob': 0.0}
+B/runs/B_apc_s2                               150     19.020      147.8  {'remove_rate': 0.02, 'connection_scale': 10.0} {'add_per_child': 3.0, 'add_share': '0.4,0.2,0.4', 'add_path_prob': 0.0}
+B/runs/B_path_s0                              150     18.280       71.2  {'connection_rate': 0.0001, 'remove_rate': 0.05, 'connection_scale': 10.0} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.5}
+B/runs/B_path_s1                              150     17.880       68.0  {'connection_rate': 0.0001, 'remove_rate': 0.05, 'connection_scale': 10.0} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.5}
+B/runs/B_path_s2                              150     18.120       58.0  {'connection_rate': 0.0001, 'remove_rate': 0.05, 'connection_scale': 10.0} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.5}
+B/runs/B_path_sens01_s0                       150     18.680       59.4  {'add_sens': 0.1, 'connection_rate': 0.0001, 'remove_rate': 0.05, 'connection_scale': 10.0} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.5}
+B/runs/B_path_sens01_s1                         4     -1.000        6.2  {'add_sens': 0.1, 'connection_rate': 0.0001, 'remove_rate': 0.05, 'connection_scale': 10.0} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.5}
+B/runs/scr_apc3                                70     11.060      108.1  {'remove_rate': 0.02} {'add_per_child': 3.0, 'add_share': '0.4,0.2,0.4', 'add_path_prob': 0.0}
+B/runs/scr_apc3_c1e3                           70     10.200      111.8  {'remove_rate': 0.02, 'connection_cost': 0.001} {'add_per_child': 3.0, 'add_share': '0.4,0.2,0.4', 'add_path_prob': 0.0}
+B/runs/scr_apc3_cs10                           70     16.960      109.7  {'remove_rate': 0.02, 'connection_scale': 10.0} {'add_per_child': 3.0, 'add_share': '0.4,0.2,0.4', 'add_path_prob': 0.0}
+B/runs/scr_apc3_cs10_c1e2                      70     17.520      107.3  {'remove_rate': 0.02, 'connection_scale': 10.0, 'connection_cost': 0.01} {'add_per_child': 3.0, 'add_share': '0.4,0.2,0.4', 'add_path_prob': 0.0}
+B/runs/scr_asym1e4_r05                         70      0.240       36.8  {'connection_rate': 0.0001, 'remove_rate': 0.05} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.0}
+B/runs/scr_asym2e4                             70      6.200      137.5  {'connection_rate': 0.0002, 'remove_rate': 0.02} {'add_per_child': None, 'add_share': None}
+B/runs/scr_asym5e4_c1e3                        70     12.540      322.4  {'connection_rate': 0.0005, 'remove_rate': 0.02, 'connection_cost': 0.001} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.0}
+B/runs/scr_asym5e4_c1e3_cs5                    70     14.600      307.0  {'connection_rate': 0.0005, 'remove_rate': 0.02, 'connection_scale': 5.0, 'connection_cost': 0.001} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.0}
+B/runs/scr_cost1e3                             70     12.940     1676.3  {'connection_cost': 0.001} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.0}
+B/runs/scr_path_cs10                           70     17.160      108.5  {'connection_rate': 0.0001, 'remove_rate': 0.02, 'connection_scale': 10.0} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.5}
+B/runs/scr_path_cs10_r05                       70     17.480       66.0  {'connection_rate': 0.0001, 'remove_rate': 0.05, 'connection_scale': 10.0} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.5}
+B/runs/scr_path_cs5_ms05                       70     16.920      104.5  {'mutation_scale': 0.5, 'connection_rate': 0.0001, 'remove_rate': 0.02, 'connection_scale': 5.0} {'add_per_child': None, 'add_share': None, 'add_path_prob': 0.5}
+C/runs/C_clone12_s0                           150     12.960     3375.1  {'population': 12, 'episodes': 1, 'eval_mode': 'clone'} {'selection': 'rank', 'tournament_size': 3, 'scheme': 'generational', 'ss_children': 30, 'ss_reeval': 10, 'ss_max_count': 10}
+C/runs/C_ep1_s0                               450     13.660     3760.9  {'episodes': 1} {'selection': 'rank', 'tournament_size': 3, 'scheme': 'generational', 'ss_children': 30, 'ss_reeval': 10, 'ss_max_count': 10}
+C/runs/C_ep6_s0                                75     14.540     1657.0  {'episodes': 6} {'selection': 'rank', 'tournament_size': 3, 'scheme': 'generational', 'ss_children': 30, 'ss_reeval': 10, 'ss_max_count': 10}
+C/runs/C_ss1_s0                               449     14.160     1701.2  {'episodes': 1} {'selection': 'rank', 'tournament_size': 3, 'scheme': 'steady', 'ss_children': 30, 'ss_reeval': 10, 'ss_max_count': 10}
+C/runs/C_ss3_s0                               149     14.080      657.4  {} {'selection': 'rank', 'tournament_size': 3, 'scheme': 'steady', 'ss_children': 30, 'ss_reeval': 10, 'ss_max_count': 10}
+C/runs/C_tourn_s0                             119     12.880     3027.3  {} {'selection': 'tournament', 'tournament_size': 3, 'scheme': 'generational', 'ss_children': 30, 'ss_reeval': 10, 'ss_max_count': 10}

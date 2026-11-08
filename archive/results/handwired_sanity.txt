@@ -1,0 +1,12 @@
+add_sens  0.01  w_in    1 c_out   1 self    0  conns  24  score  8.31 ± 0.66  blind  0.12
+add_sens  0.01  w_in   10 c_out  10 self    0  conns  24  score 17.12 ± 1.21  blind  0.12
+add_sens  0.01  w_in  100 c_out  10 self    0  conns  24  score 17.55 ± 1.05  blind  0.12
+add_sens  0.01  w_in   10 c_out  10 self 0.18  conns  32  score 15.90 ± 0.61  blind  0.12
+add_sens   0.1  w_in    1 c_out   1 self    0  conns  24  score 16.74 ± 0.82  blind  0.12
+add_sens   0.1  w_in   10 c_out  10 self    0  conns  24  score 17.55 ± 1.05  blind  0.12
+add_sens   0.1  w_in  100 c_out  10 self    0  conns  24  score 17.84 ± 0.94  blind  0.12
+add_sens   0.1  w_in   10 c_out  10 self 0.18  conns  32  score 15.91 ± 0.67  blind  0.12
+add_sens   1.0  w_in    1 c_out   1 self    0  conns  24  score 17.30 ± 0.98  blind  0.12
+add_sens   1.0  w_in   10 c_out  10 self    0  conns  24  score 17.84 ± 0.94  blind  0.12
+add_sens   1.0  w_in  100 c_out  10 self    0  conns  24  score 17.75 ± 0.76  blind  0.12
+add_sens   1.0  w_in   10 c_out  10 self 0.18  conns  32  score 15.85 ± 0.65  blind  0.12

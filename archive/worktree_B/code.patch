@@ -1,0 +1,96 @@
+diff --git a/src/evolve.py b/src/evolve.py
+index 70a0291..ba1f754 100644
+--- a/src/evolve.py
++++ b/src/evolve.py
+@@ -74,6 +74,15 @@ def build_parser():
+       help="per-entry remove prob. (default = --connection-rate, as in genome_pe3)")
+     a("--connection-scale", type=float, default=1.0)
+     a("--no-caps", action="store_true", help="drop the 20%% per-matrix caps")
++    a("--add-per-child", type=float, default=None,
++      help="expected number of added connections per child (replaces the "
++           "per-entry --connection-rate for additions; default off)")
++    a("--add-share", default=None,
++      help="with --add-per-child: comma-separated Win,Wh,Wout split of the "
++           "additions, e.g. 0.4,0.2,0.4 (default: proportional to matrix size)")
++    a("--add-path-prob", type=float, default=0.0,
++      help="per-child probability of adding one input->hidden->output path "
++           "(a Win and a Wout entry through the same random hidden unit)")
+     a("--connection-cost", type=float, default=0.0,
+       help="selection fitness = food - cost * n_connections")
+     # validation / checkpoints
+@@ -140,7 +149,12 @@ def make_child(parent, args, rng):
+     child.mutate(rng, args.mutation_rate, args.mutation_scale,
+                  mutate_hyper=not args.no_hyper_mutation)
+     child.add_remove_connection(rng, args.connection_rate, args.connection_scale,
+-                                remove_rate=args.remove_rate, caps=not args.no_caps)
++                                remove_rate=args.remove_rate, caps=not args.no_caps,
++                                add_per_child=args.add_per_child,
++                                add_share=(None if args.add_share is None else
++                                           [float(x) for x in args.add_share.split(",")]))
++    if args.add_path_prob > 0 and rng.random() < args.add_path_prob:
++        child.add_path(rng, args.connection_scale)
+     return child
+ 
+ 
+diff --git a/src/pefe_np.py b/src/pefe_np.py
+index b538080..be05d61 100644
+--- a/src/pefe_np.py
++++ b/src/pefe_np.py
+@@ -129,19 +129,36 @@ class Genome:
+             np.maximum(self.hyper, 1e-3, out=self.hyper)
+ 
+     def add_remove_connection(self, rng, mutation_rate=0.002, mutation_scale=1.0,
+-                              remove_rate=None, caps=True):
++                              remove_rate=None, caps=True, add_per_child=None,
++                              add_share=None):
+         """Structural mutation.
+ 
+         Default (remove_rate=None) is genome_pe3's rule: every entry is hit
+         with probability `mutation_rate`; hit nonzeros are removed, hit zeros
+         are added (up to the 20 % cap).  `remove_rate` lets the remove
+         probability differ from the add probability.
++
++        `add_per_child` (optional) replaces the per-entry add probability by
++        a fixed *expected number* of additions per call, split over
++        (Win, Wh, Wout) by `add_share` (default: proportional to matrix size,
++        i.e. uniform over entries).  Within a matrix each empty entry is added
++        with probability expected_adds_m / n_empty_m, so the add count does
++        not depend on how full the genome already is.
+         """
+         rr = mutation_rate if remove_rate is None else remove_rate
+-        for _, W, cap in self.matrices():
++        if add_per_child is not None:
++            share = (np.array([N_WIN, N_WH, N_WOUT], float) if add_share is None
++                     else np.asarray(add_share, float))
++            share = share / share.sum()
++        for m, (_, W, cap) in enumerate(self.matrices()):
+             nz = W != 0
+             remove = nz & (rng.random(W.shape) < rr)
+-            add = (~nz) & (rng.random(W.shape) < mutation_rate)
++            if add_per_child is None:
++                p_add = mutation_rate
++            else:
++                n_empty = W.size - int(nz.sum())
++                p_add = min(1.0, add_per_child * share[m] / max(n_empty, 1))
++            add = (~nz) & (rng.random(W.shape) < p_add)
+             W[remove] = 0.0
+             add_idx = np.flatnonzero(add)
+             if caps:
+@@ -155,6 +172,17 @@ class Genome:
+                 # an exact zero would be "no connection"; vanishingly rare
+                 W.flat[add_idx[W.flat[add_idx] == 0]] = 1e-6
+ 
++    def add_path(self, rng, mutation_scale=1.0):
++        """Add one input->hidden->output path through a random hidden unit:
++        a new Win[j, i] and a new Wout[k, j] (entries that already exist are
++        left alone).  Off unless evolve.py --add-path-prob > 0."""
++        j = int(rng.integers(HIDDEN_SIZE))
++        i = int(rng.integers(INPUT_SIZE))
++        k = int(rng.integers(OUTPUT_SIZE))
++        for W, idx in ((self.Win, (j, i)), (self.Wout, (k, j))):
++            if W[idx] == 0:
++                W[idx] = np.float32(rng.standard_normal() * mutation_scale) or np.float32(1e-6)
++
+     # -- io ------------------------------------------------------------------
+     def to_dict(self, prefix=""):
+         return {prefix + "Win": self.Win, prefix + "Wh": self.Wh,
