@@ -145,6 +145,11 @@ def run_genome(path, env_cfg=None, world="auto"):
     g, cfg, meta = P.load_genome(path)
     if env_cfg is None:
         env_cfg = world_config(world, g, meta)
+    if g.n_inputs < env_cfg.n_inputs:
+        # a v1 genome in the v2 world: zero weights from the extra (bar) sensors
+        Win = np.zeros((P.HIDDEN_SIZE, env_cfg.n_inputs), np.float32)
+        Win[:, :g.n_inputs] = g.Win
+        g = P.Genome(Win, g.Wh, g.Wout, g.hyper)
     envs = []
     s = eval_genome(g, cfg, env_cfg, env_out=envs)
     b = eval_genome(g, cfg, env_cfg, blind=True)
@@ -186,7 +191,8 @@ def main():
     ap.add_argument("--baselines", action="store_true")
     ap.add_argument("--json", default=None, help="write results here")
     ap.add_argument("--world", choices=["auto", "v1", "v2"], default="auto",
-                    help="auto: v2 for 24-input genomes, else v1 (baselines: v1)")
+                    help="auto: v2 for 24-input genomes, else v1 (baselines: v1); "
+                         "--world v2 with a v1 genome runs it in v2 without bar sensors")
     a = ap.parse_args()
     results = []
     if a.baselines:
