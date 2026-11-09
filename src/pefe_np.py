@@ -78,22 +78,24 @@ class Genome:
 
     __slots__ = ("Win", "Wh", "Wout", "hyper")
 
-    def __init__(self, Win=None, Wh=None, Wout=None, hyper=None):
-        self.Win = np.zeros((HIDDEN_SIZE, INPUT_SIZE), np.float32) if Win is None else Win
+    def __init__(self, Win=None, Wh=None, Wout=None, hyper=None, n_inputs=INPUT_SIZE):
+        # n_inputs: 16 for the v1 world; the v2 "blocks" world (pefe_blocks.py)
+        # adds 8 bar sensors, so its genomes are built with n_inputs=24.
+        self.Win = np.zeros((HIDDEN_SIZE, n_inputs), np.float32) if Win is None else Win
         self.Wh = np.zeros((HIDDEN_SIZE, HIDDEN_SIZE), np.float32) if Wh is None else Wh
         self.Wout = np.zeros((OUTPUT_SIZE, HIDDEN_SIZE), np.float32) if Wout is None else Wout
         self.hyper = np.ones(NUM_HYPERPARAMETERS, np.float32) if hyper is None else hyper
 
     # -- construction --------------------------------------------------------
     @classmethod
-    def zeros(cls):
-        return cls()
+    def zeros(cls, n_inputs=INPUT_SIZE):
+        return cls(n_inputs=n_inputs)
 
     @classmethod
-    def random_dense(cls, rng, scale=0.1):
+    def random_dense(cls, rng, scale=0.1, n_inputs=INPUT_SIZE):
         """Same as GenomePE(full_rank=True, initialization='random')."""
         return cls(
-            (rng.standard_normal((HIDDEN_SIZE, INPUT_SIZE)) * scale).astype(np.float32),
+            (rng.standard_normal((HIDDEN_SIZE, n_inputs)) * scale).astype(np.float32),
             (rng.standard_normal((HIDDEN_SIZE, HIDDEN_SIZE)) * scale).astype(np.float32),
             (rng.standard_normal((OUTPUT_SIZE, HIDDEN_SIZE)) * scale).astype(np.float32),
         )
@@ -111,8 +113,13 @@ class Genome:
                 "Wh": int(np.count_nonzero(self.Wh)),
                 "Wout": int(np.count_nonzero(self.Wout))}
 
+    @property
+    def n_inputs(self):
+        return self.Win.shape[1]
+
     def matrices(self):
-        return (("Win", self.Win, MAX_WIN), ("Wh", self.Wh, MAX_WH),
+        # caps: 20% of each matrix (== MAX_WIN/MAX_WH/MAX_WOUT for 16 inputs)
+        return (("Win", self.Win, self.Win.size // 5), ("Wh", self.Wh, MAX_WH),
                 ("Wout", self.Wout, MAX_WOUT))
 
     # -- mutation (faithful to genome_pe3; extra knobs default to old behavior)
@@ -147,7 +154,7 @@ class Genome:
         """
         rr = mutation_rate if remove_rate is None else remove_rate
         if add_per_child is not None:
-            share = (np.array([N_WIN, N_WH, N_WOUT], float) if add_share is None
+            share = (np.array([self.Win.size, N_WH, N_WOUT], float) if add_share is None
                      else np.asarray(add_share, float))
             share = share / share.sum()
         for m, (_, W, cap) in enumerate(self.matrices()):
@@ -177,7 +184,7 @@ class Genome:
         a new Win[j, i] and a new Wout[k, j] (entries that already exist are
         left alone).  Off unless evolve.py --add-path-prob > 0."""
         j = int(rng.integers(HIDDEN_SIZE))
-        i = int(rng.integers(INPUT_SIZE))
+        i = int(rng.integers(self.n_inputs))
         k = int(rng.integers(OUTPUT_SIZE))
         for W, idx in ((self.Win, (j, i)), (self.Wout, (k, j))):
             if W[idx] == 0:
@@ -260,7 +267,8 @@ class BatchBrain:
         self.rng = rng
         gidx = list(genome_of_agent)
         self.N = len(gidx)
-        self.Win = _block([g.Win for g in genomes], gidx, HIDDEN_SIZE, INPUT_SIZE)
+        self.n_inputs = genomes[gidx[0]].n_inputs
+        self.Win = _block([g.Win for g in genomes], gidx, HIDDEN_SIZE, self.n_inputs)
         self.Wh = _block([g.Wh for g in genomes], gidx, HIDDEN_SIZE, HIDDEN_SIZE)
         self.Wout = _block([g.Wout for g in genomes], gidx, OUTPUT_SIZE, HIDDEN_SIZE)
         hp = np.stack([genomes[g].hyper[:6] for g in gidx]).astype(np.float64)
@@ -307,6 +315,11 @@ class EnvConfig:
     friction: float = 0.95
     turn_rate: float = 0.15
     agent_radius: float = 5.0
+
+    n_inputs = INPUT_SIZE  # sensor count (class attribute, not a field)
+
+    def make_env(self, n_arenas):
+        return BatchEnv(n_arenas, self)
 
 
 class BatchEnv:
@@ -362,6 +375,10 @@ class BatchEnv:
         return np.concatenate([obs_food, obs_ag], -1)
 
     def step(self, actions):
+        self._move_agents(actions)
+        return self._eat()
+
+    def _move_agents(self, actions):
         c = self.cfg
         act = np.clip(np.asarray(actions, np.float32), -1, 1)
         theta = self.theta + act[..., 2] * c.turn_rate
@@ -381,6 +398,8 @@ class BatchEnv:
         vel[above & (vel > 0)] = 0
         self.theta, self.pos, self.vel = theta.astype(np.float32), pos.astype(np.float32), vel.astype(np.float32)
 
+    def _eat(self):
+        c = self.cfg
         # food: each food goes to the closest colliding agent
         fd = self._food_delta()
         d2 = fd[2]  # (E,A,F), reused by observe()
@@ -420,17 +439,25 @@ def handcoded_stop_actions(obs):
 
 
 def run_batch(genomes, genome_of_agent, brain_cfg, env_cfg, seeds, rng,
-              controller=None, blind=False, record=None):
+              controller=None, blind=False, record=None, env_out=None,
+              zero_inputs=None):
     """Run len(seeds) arenas in parallel.
 
     genome_of_agent: int array (E, A) of indices into `genomes`.
-    controller: None -> brains; or a function obs(E,A,16) -> actions(E,A,3).
+    controller: None -> brains; or a function obs(E,A,n_in) -> actions(E,A,3).
     blind: zero the food sensors (luck / drift check).
     record: optional list; per-step dict of positions etc. for arena 0.
+    zero_inputs: optional index/slice of inputs to zero every step (e.g. the
+      v2 bar sensors, slice(16, 24)).
+    env_out: optional list; the finished environment is appended (v2 uses it
+      to read bar statistics).
+    env_cfg.make_env picks the world: EnvConfig -> v1 BatchEnv,
+      pefe_blocks.BlockEnvConfig -> v2 BlockEnv.
     Returns food collected per agent, shape (E, A).
     """
     E = len(seeds)
-    env = BatchEnv(E, env_cfg)
+    env = env_cfg.make_env(E)
+    n_in = env_cfg.n_inputs
     obs = env.reset(seeds)
     brain = None
     if controller is None:
@@ -441,19 +468,29 @@ def run_batch(genomes, genome_of_agent, brain_cfg, env_cfg, seeds, rng,
         if blind:
             obs = obs.copy()
             obs[..., :8] = 0
+        if zero_inputs is not None:
+            obs = obs.copy()
+            obs[..., zero_inputs] = 0
         if record is not None:
-            record.append({"pos": env.pos[0].copy(), "theta": env.theta[0].copy(),
-                           "food": env.food[0][env.alive[0]].copy(),
-                           "energy": env.energy[0].copy(), "step": t})
+            record.append(_snapshot(env, t))
         if brain is None:
             act = controller(obs)
         else:
-            act = brain(obs.reshape(E * A, INPUT_SIZE).astype(np.float64)).reshape(E, A, 3)
+            act = brain(obs.reshape(E * A, n_in).astype(np.float64)).reshape(E, A, 3)
         obs, _ = env.step(act)
         if not env.alive.any():
             break
     if record is not None:
-        record.append({"pos": env.pos[0].copy(), "theta": env.theta[0].copy(),
-                       "food": env.food[0][env.alive[0]].copy(),
-                       "energy": env.energy[0].copy(), "step": env.steps})
+        record.append(_snapshot(env, env.steps))
+    if env_out is not None:
+        env_out.append(env)
     return env.energy.copy()
+
+
+def _snapshot(env, t):
+    r = {"pos": env.pos[0].copy(), "theta": env.theta[0].copy(),
+         "food": env.food[0][env.alive[0]].copy(),
+         "energy": env.energy[0].copy(), "step": t}
+    if hasattr(env, "snapshot_extra"):
+        r.update(env.snapshot_extra())
+    return r

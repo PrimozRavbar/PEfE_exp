@@ -42,6 +42,45 @@ python tests/test_defaults.py
 
 Open `PEfE_evolve_colab.ipynb` in Colab and run all cells. It clones the repository (`BRANCH = "main"`; set it to another branch to test that branch), evolves with `SEED` and `GENERATIONS`, evaluates (including the blind score), and shows the trajectory PNG and the video inline. No GPU needed.
 
+## v2: movable bars (`--world v2`)
+
+The v2 world (`src/pefe_blocks.py`) adds 40 heavy capsule-shaped bars of length 300 at random positions and angles. Agents cannot pass through them, but they can push them: one agent moves a bar only slightly, pushing near an end rotates it, and several pushers add up. Agents get 8 more sensors (nearest bar surface per sector), so they have 24 inputs. Food and agent spawn positions come from the same draws as v1; the bars come from a separate random stream. v1 is the default everywhere and is unchanged.
+
+```bash
+python src/evolve.py --out runs/v2/s0 --world v2 --seed 0 --generations 400
+```
+
+```bash
+python src/evaluate.py --genome runs/v2/s0/best.npz
+```
+
+```bash
+python src/evaluate.py --baselines --world v2
+```
+
+```bash
+python src/render.py --genome runs/v2/s0/best.npz --out runs/v2/s0/best.mp4
+```
+
+```bash
+python src/sweep_bars.py
+```
+
+```bash
+python tests/test_blocks.py
+```
+
+`evaluate.py` and `render.py` detect a 24-input genome and use the v2 world with the bar settings saved in the genome. For v2, `evaluate.py` also reports a *bar-blind* score (bar sensors zeroed) and bar statistics: how far bars moved, how often agents pushed, and how often two or more agents pushed one bar at once. `sweep_bars.py` measures the hand-coded baseline for several bar counts and lengths. `tests/test_blocks.py` holds the physics tests: no crossing, a single push moves a bar slightly, an end push rotates it, two pushers move it faster, and v2 with 0 bars equals v1. Colab: `PEfE_v2_blocks_colab.ipynb`. Results: `RESULTS_v2.md`.
+
+| v2 flag | default | meaning |
+|---|---|---|
+| `--world` | v1 | `v2` turns on the bars |
+| `--n-bars` | 40 | number of bars |
+| `--bar-length` | 300 | length of a bar's axis |
+| `--bar-radius` | 5 | half thickness |
+| `--bar-mass` | 50 | bar mass (agent = 1) |
+| `--bar-damping` | 0.9 | per-step multiplier on bar linear and angular velocity |
+
 ## Default hyperparameters (`src/evolve.py`)
 
 These defaults are the final "B apc" setup. `python src/evolve.py --out runs/x --seed 0` runs it with no extra flags. Every value is a flag, and each run saves its full set in `config.json`.
@@ -100,7 +139,8 @@ Final runs, plots and video are in `results/final/`, baselines in `results/basel
 
 - `src/pefe_np.py`: numpy Brain3, sparse genome, batched environment and brains.
 - `src/evolve.py`: evolution driver. `src/evaluate.py`: standard evaluation and baselines. `src/render.py`: video and trajectory PNG. `src/plot_runs.py`: fitness curves over seeds.
-- `tests/`: simulator equivalence and default-setup checks.
+- `src/pefe_blocks.py`: the v2 world with movable bars. `src/sweep_bars.py`: bar-difficulty sweep.
+- `tests/`: simulator equivalence, default-setup checks, and v2 bar physics (`test_blocks.py`).
 - `results/`: baselines and the final 3-seed runs.
 - `archive/`: experiment logs, patches, screens and the raw runs from development, kept for reference. Nothing there is needed to run. See `archive/README.md`.
 - Original torch code, unchanged: `environment.py`, `brain.py`, `agent.py`, `genome.py`, `run_episode.py` and `evolution.py` (first stack); `brain2.py`, `game_control.py`; and the "3" stack `brain3.py`, `genome_pe3.py`, `agent3.py`, `environment3.py`, `run_episode3.py`, `evolution3.py`, `evolve3_zero.py`. The numpy tests use `agent3.py` and `environment3.py`, which import only numpy.
