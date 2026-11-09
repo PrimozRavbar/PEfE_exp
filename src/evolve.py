@@ -21,6 +21,18 @@ Final numbers must come from evaluate.py (held-out seeds), not from log.csv.
 Usage:
     python src/evolve.py --out runs/x --seed 0
     python src/evolve.py --out runs/v2 --seed 0 --world v2   # movable bars
+    # continue a finished run for 200 more generations (same flags as before):
+    python src/evolve.py --out runs/v2_more --seed 0 --world v2 \
+        --init-pop runs/v2/final_pop.npz --generations 200
+
+--init-pop continues from a saved population (final_pop.npz, or a
+checkpoint pop_N.npz).  Those files hold an evaluated population and its
+fitness, so the run first breeds the next generation from them and then goes
+on as usual; generation numbers (and so the validation seeds) carry on from
+where the old run stopped.  --generations is the number of *additional*
+generations.  The random state is not saved, so the continuation is not
+bit-identical to one uninterrupted run.  best.npz in the new --out is the best
+genome validated during the continuation.
 
 --world v2 runs the "blocks" world of src/pefe_blocks.py (24 sensor inputs:
 food, agents, bars).  Everything else in the loop is the same; the bar
@@ -122,6 +134,12 @@ def build_parser():
     a("--check-every", type=int, default=5)
     a("--check-episodes", type=int, default=5)
     a("--checkpoint-every", type=int, default=0)
+    # continue from a saved population
+    a("--init-pop", default=None,
+      help="continue from a saved population (final_pop.npz or pop_N.npz)")
+    a("--start-gen", type=int, default=None,
+      help="generation number of the saved population + 1; default: N for "
+           "pop_N.npz, else read from the log.csv next to the file")
     return p
 
 
@@ -221,7 +239,11 @@ def main(argv=None):
     rng = np.random.default_rng(args.seed)
     bcfg, ecfg = brain_config(args), env_config(args)
     v2 = args.world == "v2"
-    genomes = [init_genome(args, rng, ecfg.n_inputs) for _ in range(args.population)]
+    start_gen, evals = 0, 0
+    if args.init_pop:
+        genomes, saved_fitness, start_gen, evals = load_population(args, ecfg)
+    else:
+        genomes = [init_genome(args, rng, ecfg.n_inputs) for _ in range(args.population)]
     meta_world = {"world": "v2", "env": BL.asdict(ecfg)} if v2 else {}
 
     log_path = os.path.join(args.out, "log.csv")
@@ -232,9 +254,14 @@ def main(argv=None):
     with open(log_path, "w", newline="") as f:
         csv.writer(f).writerow(cols)
 
-    evals, best_valid = 0, -1.0
+    best_valid = -1.0
+    if args.init_pop:  # breed from the saved (already evaluated) population
+        conns = np.array([g.n_connections() for g in genomes])
+        genomes = next_generation(genomes, saved_fitness - args.connection_cost * conns,
+                                  args, rng)
     t_start = time.perf_counter()
-    for gen in range(args.generations):
+    for i in range(args.generations):
+        gen = start_gen + i
         t0 = time.perf_counter()
         envs = [] if v2 else None
         fitness, used = evaluate_population(genomes, args, rng, bcfg, ecfg, envs)
@@ -244,7 +271,7 @@ def main(argv=None):
         b = int(np.argmax(sel))
 
         valid = ""
-        last = gen == args.generations - 1 or (args.max_evals and evals >= args.max_evals)
+        last = i == args.generations - 1 or (args.max_evals and evals >= args.max_evals)
         if (gen + 1) % args.check_every == 0 or last:
             v = validate(genomes[b], args, bcfg, ecfg, gen)
             valid = f"{v:.3f}"
@@ -276,6 +303,41 @@ def main(argv=None):
 
     _save_pop(os.path.join(args.out, "final_pop.npz"), genomes, fitness)
     print(f"done in {time.perf_counter() - t_start:.0f}s; best validation {best_valid:.2f}")
+
+
+def load_population(args, ecfg):
+    """Read a population saved by _save_pop.  Returns (genomes, fitness,
+    start_gen, evals_so_far)."""
+    d = np.load(args.init_pop)
+    n = len([k for k in d.files if k.endswith("_Win")])
+    genomes = [P.Genome.from_dict(d, f"g{i}_") for i in range(n)]
+    fitness = np.asarray(d["fitness"], float)
+    if genomes[0].n_inputs != ecfg.n_inputs:
+        raise SystemExit(f"{args.init_pop} has {genomes[0].n_inputs}-input genomes but the "
+                         f"--world {args.world} world has {ecfg.n_inputs} inputs; "
+                         "use the same --world as the saved run")
+    if n != args.population:
+        raise SystemExit(f"{args.init_pop} holds {n} genomes; use --population {n}")
+    start_gen, evals = args.start_gen, 0
+    base = os.path.basename(args.init_pop)
+    log = os.path.join(os.path.dirname(os.path.abspath(args.init_pop)), "log.csv")
+    if start_gen is None and base.startswith("pop_"):
+        start_gen = int(base[4:].split(".")[0])
+    rows = []
+    if os.path.exists(log):
+        with open(log) as f:
+            rows = list(csv.DictReader(f))
+    if start_gen is None:
+        if not rows:
+            raise SystemExit("cannot tell which generation the population is from; "
+                             "pass --start-gen")
+        start_gen = int(rows[-1]["generation"]) + 1
+    for r in rows:
+        if int(r["generation"]) == start_gen - 1:
+            evals = int(r["evals"])
+    print(f"continuing from {args.init_pop}: {n} genomes, generation {start_gen}, "
+          f"{evals} agent-episodes so far", flush=True)
+    return genomes, fitness, start_gen, evals
 
 
 def _save_pop(path, genomes, fitness):

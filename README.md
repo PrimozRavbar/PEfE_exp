@@ -70,6 +70,8 @@ python src/sweep_bars.py
 python tests/test_blocks.py
 ```
 
+To continue a finished run, pass its saved population: `python src/evolve.py --out runs/v2/s0_more --world v2 --init-pop runs/v2/s0/final_pop.npz --generations 200` (or a checkpoint `pop_N.npz`). It breeds from the saved population and its fitness, continues the generation numbering, and runs `--generations` more generations. The random state is not saved, so this is not bit-identical to one long run. The Colab notebook has cells for replaying a saved genome and for continuing a run.
+
 `evaluate.py` and `render.py` detect a 24-input genome and use the v2 world with the bar settings saved in the genome. For v2, `evaluate.py` also reports a *bar-blind* score (bar sensors zeroed) and bar statistics: how far bars moved, how often agents pushed, and how often two or more agents pushed one bar at once. `sweep_bars.py` measures the hand-coded baseline for several bar counts and lengths. `tests/test_blocks.py` holds the physics tests: no crossing, a single push moves a bar slightly, an end push rotates it, two pushers move it faster, and v2 with 0 bars equals v1. Colab: `PEfE_v2_blocks_colab.ipynb`. Results: `RESULTS_v2.md`.
 
 | v2 flag | default | meaning |
