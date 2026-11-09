@@ -20,6 +20,24 @@ Final numbers must come from evaluate.py (held-out seeds), not from log.csv.
 
 Usage:
     python src/evolve.py --out runs/x --seed 0
+    python src/evolve.py --out runs/v2 --seed 0 --world v2   # movable bars
+    # continue a finished run for 200 more generations (same flags as before):
+    python src/evolve.py --out runs/v2_more --seed 0 --world v2 \
+        --init-pop runs/v2/final_pop.npz --generations 200
+
+--init-pop continues from a saved population (final_pop.npz, or a
+checkpoint pop_N.npz).  Those files hold an evaluated population and its
+fitness, so the run first breeds the next generation from them and then goes
+on as usual; generation numbers (and so the validation seeds) carry on from
+where the old run stopped.  --generations is the number of *additional*
+generations.  The random state is not saved, so the continuation is not
+bit-identical to one uninterrupted run.  best.npz in the new --out is the best
+genome validated during the continuation.
+
+--world v2 runs the "blocks" world of src/pefe_blocks.py (24 sensor inputs:
+food, agents, bars).  Everything else in the loop is the same; the bar
+geometry / physics flags (--n-bars ...) are used only with --world v2, and
+log.csv gets extra bar columns only then.
 """
 
 import argparse
@@ -35,6 +53,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import numpy as np  # noqa: E402
 
 import pefe_np as P  # noqa: E402
+import pefe_blocks as BL  # noqa: E402
+
+_V2 = BL.BlockEnvConfig()  # defaults of the v2 bar flags
 
 VALID_SEED_BASE = 500_000  # validation seeds; evaluate.py uses 1_000_000+
 
@@ -71,6 +92,14 @@ def build_parser():
     # environment
     a("--food", type=int, default=200)
     a("--steps", type=int, default=1000)
+    a("--world", choices=["v1", "v2"], default="v1",
+      help="v1: the original foraging world; v2: plus movable bars (pefe_blocks)")
+    a("--n-bars", type=int, default=_V2.n_bars, help="(v2) number of bars")
+    a("--bar-length", type=float, default=_V2.bar_length, help="(v2) bar length")
+    a("--bar-radius", type=float, default=_V2.bar_radius, help="(v2) half thickness")
+    a("--bar-mass", type=float, default=_V2.bar_mass, help="(v2) bar mass (agent = 1)")
+    a("--bar-damping", type=float, default=_V2.bar_damping,
+      help="(v2) per-step velocity multiplier (linear and angular)")
     # brain gains (Brain3 constants)
     a("--hidden-max", type=float, default=10000.0)
     a("--add-hidden", type=float, default=0.5)
@@ -105,6 +134,12 @@ def build_parser():
     a("--check-every", type=int, default=5)
     a("--check-episodes", type=int, default=5)
     a("--checkpoint-every", type=int, default=0)
+    # continue from a saved population
+    a("--init-pop", default=None,
+      help="continue from a saved population (final_pop.npz or pop_N.npz)")
+    a("--start-gen", type=int, default=None,
+      help="generation number of the saved population + 1; default: N for "
+           "pop_N.npz, else read from the log.csv next to the file")
     return p
 
 
@@ -115,22 +150,30 @@ def brain_config(args):
 
 
 def env_config(args):
+    if getattr(args, "world", "v1") == "v2":
+        return BL.BlockEnvConfig(n_agents=args.arena_size, n_food=args.food,
+                                 max_steps=args.steps, n_bars=args.n_bars,
+                                 bar_length=args.bar_length, bar_radius=args.bar_radius,
+                                 bar_mass=args.bar_mass, bar_damping=args.bar_damping,
+                                 bar_ang_damping=args.bar_damping)
     return P.EnvConfig(n_agents=args.arena_size, n_food=args.food, max_steps=args.steps)
 
 
-def init_genome(args, rng):
+def init_genome(args, rng, n_inputs=P.INPUT_SIZE):
     if args.init == "zeros":
-        return P.Genome.zeros()
+        return P.Genome.zeros(n_inputs)
     if args.init == "random":
-        return P.Genome.random_dense(rng)
+        return P.Genome.random_dense(rng, n_inputs=n_inputs)
     if args.init.startswith("sparse:"):
         from evaluate import random_sparse
-        return random_sparse(rng, int(args.init.split(":")[1]), args.connection_scale)
+        return random_sparse(rng, int(args.init.split(":")[1]), args.connection_scale,
+                             n_inputs=n_inputs)
     raise ValueError(args.init)
 
 
-def evaluate_population(genomes, args, rng, bcfg, ecfg):
-    """Return (mean food per genome, number of agent-episodes used)."""
+def evaluate_population(genomes, args, rng, bcfg, ecfg, env_out=None):
+    """Return (mean food per genome, number of agent-episodes used).
+    env_out: optional list that receives the finished environment (v2 stats)."""
     n, A = len(genomes), args.arena_size
     if args.eval_mode == "mixed":
         layout, seeds = [], []
@@ -140,14 +183,14 @@ def evaluate_population(genomes, args, rng, bcfg, ecfg):
                 layout.append(order[s:s + A])
                 seeds.append(int(rng.integers(2**31)))
         layout = np.array(layout)
-        food = P.run_batch(genomes, layout, bcfg, ecfg, seeds, rng)
+        food = P.run_batch(genomes, layout, bcfg, ecfg, seeds, rng, env_out=env_out)
         totals = np.bincount(layout.ravel(), weights=food.ravel(), minlength=n)
         counts = np.bincount(layout.ravel(), minlength=n)
         return totals / counts, layout.size
     # clone teams: each genome in its own arena, `episodes` episodes
     layout = np.repeat(np.repeat(np.arange(n), args.episodes)[:, None], A, 1)
     seeds = [int(s) for s in rng.integers(2**31, size=len(layout))]
-    food = P.run_batch(genomes, layout, bcfg, ecfg, seeds, rng)
+    food = P.run_batch(genomes, layout, bcfg, ecfg, seeds, rng, env_out=env_out)
     per_arena = food.mean(1)
     return np.bincount(layout[:, 0], weights=per_arena, minlength=n) / args.episodes, layout.size
 
@@ -195,26 +238,40 @@ def main(argv=None):
 
     rng = np.random.default_rng(args.seed)
     bcfg, ecfg = brain_config(args), env_config(args)
-    genomes = [init_genome(args, rng) for _ in range(args.population)]
+    v2 = args.world == "v2"
+    start_gen, evals = 0, 0
+    if args.init_pop:
+        genomes, saved_fitness, start_gen, evals = load_population(args, ecfg)
+    else:
+        genomes = [init_genome(args, rng, ecfg.n_inputs) for _ in range(args.population)]
+    meta_world = {"world": "v2", "env": BL.asdict(ecfg)} if v2 else {}
 
     log_path = os.path.join(args.out, "log.csv")
     cols = ["generation", "evals", "best", "mean", "median", "best_connections",
             "mean_connections", "valid", "best_valid", "seconds"]
+    if v2:  # population-wide bar statistics of this generation's episodes
+        cols += ["bar_disp", "bars_moved", "push_frac", "multi_steps"]
     with open(log_path, "w", newline="") as f:
         csv.writer(f).writerow(cols)
 
-    evals, best_valid = 0, -1.0
+    best_valid = -1.0
+    if args.init_pop:  # breed from the saved (already evaluated) population
+        conns = np.array([g.n_connections() for g in genomes])
+        genomes = next_generation(genomes, saved_fitness - args.connection_cost * conns,
+                                  args, rng)
     t_start = time.perf_counter()
-    for gen in range(args.generations):
+    for i in range(args.generations):
+        gen = start_gen + i
         t0 = time.perf_counter()
-        fitness, used = evaluate_population(genomes, args, rng, bcfg, ecfg)
+        envs = [] if v2 else None
+        fitness, used = evaluate_population(genomes, args, rng, bcfg, ecfg, envs)
         evals += used
         conns = np.array([g.n_connections() for g in genomes])
         sel = fitness - args.connection_cost * conns
         b = int(np.argmax(sel))
 
         valid = ""
-        last = gen == args.generations - 1 or (args.max_evals and evals >= args.max_evals)
+        last = i == args.generations - 1 or (args.max_evals and evals >= args.max_evals)
         if (gen + 1) % args.check_every == 0 or last:
             v = validate(genomes[b], args, bcfg, ecfg, gen)
             valid = f"{v:.3f}"
@@ -222,17 +279,21 @@ def main(argv=None):
                 best_valid = v
                 P.save_genome(os.path.join(args.out, "best.npz"), genomes[b], bcfg,
                               {"generation": gen, "valid": v, "evals": evals,
-                               "run": args.out})
+                               "run": args.out, **meta_world})
 
         if args.checkpoint_every and (gen + 1) % args.checkpoint_every == 0:
             _save_pop(os.path.join(args.out, f"pop_{gen + 1}.npz"), genomes, fitness)
 
         dt = time.perf_counter() - t0
+        row = [gen, evals, f"{fitness.max():.3f}", f"{fitness.mean():.3f}",
+               f"{np.median(fitness):.3f}", int(conns[b]),
+               f"{conns.mean():.1f}", valid, f"{best_valid:.3f}", f"{dt:.2f}"]
+        if v2:
+            bs = BL.summarize_bar_stats(envs[0].bar_stats(), ecfg)
+            row += [f"{bs['net_disp_mean']:.2f}", f"{bs['bars_moved_10']:.2f}",
+                    f"{bs['push_frac']:.4f}", f"{bs['multi_push_bar_steps']:.1f}"]
         with open(log_path, "a", newline="") as f:
-            csv.writer(f).writerow([gen, evals, f"{fitness.max():.3f}", f"{fitness.mean():.3f}",
-                                    f"{np.median(fitness):.3f}", int(conns[b]),
-                                    f"{conns.mean():.1f}", valid, f"{best_valid:.3f}",
-                                    f"{dt:.2f}"])
+            csv.writer(f).writerow(row)
         print(f"gen {gen:4d} evals {evals:7d} best {fitness.max():6.2f} mean {fitness.mean():6.2f} "
               f"conns {conns[b]:5d}/{conns.mean():7.1f}" + (f" valid {valid}" if valid else "")
               + f" ({dt:.1f}s)", flush=True)
@@ -242,6 +303,41 @@ def main(argv=None):
 
     _save_pop(os.path.join(args.out, "final_pop.npz"), genomes, fitness)
     print(f"done in {time.perf_counter() - t_start:.0f}s; best validation {best_valid:.2f}")
+
+
+def load_population(args, ecfg):
+    """Read a population saved by _save_pop.  Returns (genomes, fitness,
+    start_gen, evals_so_far)."""
+    d = np.load(args.init_pop)
+    n = len([k for k in d.files if k.endswith("_Win")])
+    genomes = [P.Genome.from_dict(d, f"g{i}_") for i in range(n)]
+    fitness = np.asarray(d["fitness"], float)
+    if genomes[0].n_inputs != ecfg.n_inputs:
+        raise SystemExit(f"{args.init_pop} has {genomes[0].n_inputs}-input genomes but the "
+                         f"--world {args.world} world has {ecfg.n_inputs} inputs; "
+                         "use the same --world as the saved run")
+    if n != args.population:
+        raise SystemExit(f"{args.init_pop} holds {n} genomes; use --population {n}")
+    start_gen, evals = args.start_gen, 0
+    base = os.path.basename(args.init_pop)
+    log = os.path.join(os.path.dirname(os.path.abspath(args.init_pop)), "log.csv")
+    if start_gen is None and base.startswith("pop_"):
+        start_gen = int(base[4:].split(".")[0])
+    rows = []
+    if os.path.exists(log):
+        with open(log) as f:
+            rows = list(csv.DictReader(f))
+    if start_gen is None:
+        if not rows:
+            raise SystemExit("cannot tell which generation the population is from; "
+                             "pass --start-gen")
+        start_gen = int(rows[-1]["generation"]) + 1
+    for r in rows:
+        if int(r["generation"]) == start_gen - 1:
+            evals = int(r["evals"])
+    print(f"continuing from {args.init_pop}: {n} genomes, generation {start_gen}, "
+          f"{evals} agent-episodes so far", flush=True)
+    return genomes, fitness, start_gen, evals
 
 
 def _save_pop(path, genomes, fitness):
